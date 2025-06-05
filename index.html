@@ -1,193 +1,345 @@
 <!DOCTYPE html>
 <html>
-<title>RaveForm</title>
 
 <head>
+    <title>RaveForm</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="icon" href="assets/raveform_banner.png" type="image/x-icon"/>
-    <link rel="stylesheet" type="text/css" href="assets/stylesheet.css"/>
+    <link rel="icon" href="assets/raveform_banner.png" type="image/x-icon" />
+    <link rel="stylesheet" type="text/css" href="assets/stylesheet.css" />
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
-    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
 </head>
 
 <body id="body">
-<!-- Navbar -->
-<nav class="navbar navbar-fixed-top navbar-inverse">
-  <div class="container-fluid">
-    <a class="navbar-brand" href="#home" style="font-family: d3iso;">
-      <span>
-        <img id="navicon" src="assets/raveform_banner.png"/>
-    </span>
-      RaveForm
-    </a>
-  </div>
-</nav>
+    <!-- Navbar -->
+    <nav class="navbar navbar-fixed-top navbar-inverse">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#home" style="font-family: d3iso;">
+                <span>
+                    <img id="navicon" src="assets/raveform_banner.png" />
+                </span>
+                RaveForm
+            </a>
+        </div>
+    </nav>
 
-<div id="canvascontainer">
-    <canvas id="viz"></canvas>
-    <h1 style="font-family:d3iso; color: white;">RaveForm</h1>
-    <canvas id="viz2"></canvas>
-</div>
+    <div id="canvascontainer">
+        <canvas id="viz"></canvas>
+        <h1 style="font-family:d3iso; color: white;">RaveForm</h1>
+        <canvas id="viz2"></canvas>
+        <button id="audio-source-toggle" onclick="toggleAudioSource()" style="
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            background-color: #333;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: Arial, sans-serif;
+        ">Switch Audio Source</button>
+    </div>
 
-<script>
-    window.onload = function(){
-        resizeviz();
-        init();
-    };
+    <script>
+        var audioSource = 'system'; // Track current audio source
+        var currentStream = null; // Track current media stream
+        var isProcessing = false; // Flag to prevent multiple processing instances
 
-    window.onresize = function(){
-        resizeviz();
-    };
-
-    function resizeviz(){
-        var viz = document.getElementById("viz");
-        var viz2 = document.getElementById("viz2");
-        var rect = viz.parentNode.getBoundingClientRect();
-        viz.width = rect.width;
-        viz2.width = rect.width;
-    }
-
-    function init(){
-        window.requestAnimationFrame = 	 window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;
-        context = new AudioContext(); //set audiocontext
-        //set context for visualizations
-        window.ctx = document.getElementById('viz').getContext('2d');
-        window.ctx2 = document.getElementById('viz2').getContext('2d');
-        //create rainbow gradient and set fill style
-        window.gradient = ctx.createLinearGradient(0,0,0,150);
-        gradient.addColorStop(0.7, '#FF0000');
-        gradient.addColorStop(0.6, '#FF7F00');
-        gradient.addColorStop(0.5, '#FFFF00');
-        gradient.addColorStop(0.4, '#00FF00');
-        gradient.addColorStop(0.3, '#0000FF');
-        gradient.addColorStop(0.2, '#4B0082');
-        gradient.addColorStop(0, '#9400D3');
-        //Second mirrored gradient
-        window.gradient2 = ctx2.createLinearGradient(0,0,0,150);
-        gradient2.addColorStop(.9, '#9400D3');
-        gradient2.addColorStop(0.8, '#4B0082');
-        gradient2.addColorStop(0.7, '#0000FF');
-        gradient2.addColorStop(0.6, '#00FF00');
-        gradient2.addColorStop(0.5, '#FFFF00');
-        gradient2.addColorStop(0.4, '#FF7F00');
-        gradient2.addColorStop(0.2, '#FF0000');
-
-        //create AudioNodes and set properties
-        window.analyser = context.createAnalyser();
-        analyser.fftsize = 512; //low resolution, but fast computation
-        analyser.smoothingTimeConstant = 0; //Important not to blend fft data - we want distinct frequencies for color change
-        window.vizAnalyser = context.createAnalyser();
-        vizAnalyser.fftsize=2048;
-        vizAnalyser.smoothingTimeConstant=.95; //smoothing time is important for vizualization
-
-        //get 'mixed audio' stream from sound card
-        navigator.getMedia = (navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia);
-        navigator.getMedia({
-            audio: true,
-            video: false
-        }, function(localMediaStream) {
-            //connect audio nodes
-            source = context.createMediaStreamSource(localMediaStream);
-            source.connect(analyser);
-            source.connect(vizAnalyser)
-            //process audio streams
-            sendHueData();
-            draw();
-        }, function(err) {
-            console.log(err);
-        });
-    }
-
-    function sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    function draw() {
-        //set fillStyles
-        ctx.fillStyle = gradient;
-        ctx2.fillStyle = gradient2;
-
-        //get frequency data from analyser node
-        var bufferLength = vizAnalyser.frequencyBinCount;
-        var hueData = new Uint8Array(bufferLength);
-        vizAnalyser.getByteFrequencyData(hueData);
-
-        //clear canvases
-        var viz = document.getElementById("viz");
-        ctx.clearRect(0, 0, viz.width, 256);
-        ctx2.clearRect(0, 0, viz.width, 256);
-        for (var i = 0; i < bufferLength; i++)
-        {
-            //draw reflected visualizations
-            ctx.fillRect(i * 2, 150-(hueData[i]/2), 2, 2);
-            ctx.fillRect(i * 2, 150-(hueData[i]/1.5), 1.5, 1.5);
-            ctx.fillRect(i * 2, 150-hueData[i], 1, 1);
-            ctx2.fillRect(i * 2, hueData[i]-2, 1, 1);
-            ctx2.fillRect(i * 2, (hueData[i]/1.5)-2, 1.5, 1.5);
-            ctx2.fillRect(i * 2, (hueData[i]/2)-2, 2, 2);
-        }
-        requestAnimationFrame(draw);
-    }
-
-    async function sendHueData() {
-        //get frequency data from analyser node
-        var bufferLength = analyser.frequencyBinCount;
-        var hueData = new Uint8Array(bufferLength);
-        analyser.getByteFrequencyData(hueData);
-
-        //find the dominant frequency bin
-        var max = 0;
-        var index = -1;
-        for (var i = 0; i < bufferLength; i++)
-        {
-            if (hueData[i]>max)
-            {
-                max = hueData[i];
-                index = i;
-            }
-        }
-
-        //calculate the dominant frequency
-        var frequency = (index * 44100)/ 2048.0;
-        var brightness = max;
-
-        //determine if freq is low or high
-        var low = false;
-        if (frequency<450){
-            low = true;
-            //dim lights if no sound
-            if (frequency<0)
-            {
-                brightness = 125;
-            }
-        }
-
-        //calculate hue val
-        var hue = Math.min(frequency/1250, 1);
-
-        //construct json with data
-        var hueJSON = {
-            "hue" : hue,
-            "brightness" : brightness,
-            "low" : low
+        window.onload = function () {
+            resizeviz();
+            init();
         };
 
-        //post freq data to server
-        $.ajax({
-            url: '/hueData',
-            type: 'POST',
-            dataType: 'json',
-            data: JSON.stringify(hueJSON),
-            contentType: "application/json",
-        });
+        window.onresize = function () {
+            resizeviz();
+        };
 
-        //wait 333ms & repeat
-        await sleep(333);
-        requestAnimationFrame(sendHueData);
-    }
-</script>
+        function resizeviz() {
+            var viz = document.getElementById("viz");
+            var viz2 = document.getElementById("viz2");
+            var rect = viz.parentNode.getBoundingClientRect();
+            viz.width = rect.width;
+            viz2.width = rect.width;
+        }
+
+        function init() {
+            window.requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;
+            context = new AudioContext(); //set audiocontext
+            //set context for visualizations
+            window.ctx = document.getElementById('viz').getContext('2d');
+            window.ctx2 = document.getElementById('viz2').getContext('2d');
+            //create rainbow gradient and set fill style
+            window.gradient = ctx.createLinearGradient(0, 0, 0, 150);
+            gradient.addColorStop(0.7, '#FF0000');
+            gradient.addColorStop(0.6, '#FF7F00');
+            gradient.addColorStop(0.5, '#FFFF00');
+            gradient.addColorStop(0.4, '#00FF00');
+            gradient.addColorStop(0.3, '#0000FF');
+            gradient.addColorStop(0.2, '#4B0082');
+            gradient.addColorStop(0, '#9400D3');
+            //Second mirrored gradient
+            window.gradient2 = ctx2.createLinearGradient(0, 0, 0, 150);
+            gradient2.addColorStop(.9, '#9400D3');
+            gradient2.addColorStop(0.8, '#4B0082');
+            gradient2.addColorStop(0.7, '#0000FF');
+            gradient2.addColorStop(0.6, '#00FF00');
+            gradient2.addColorStop(0.5, '#FFFF00');
+            gradient2.addColorStop(0.4, '#FF7F00');
+            gradient2.addColorStop(0.2, '#FF0000');
+
+            //create AudioNodes and set properties
+            window.analyser = context.createAnalyser();
+            analyser.fftsize = 512; //low resolution, but fast computation
+            analyser.smoothingTimeConstant = 0; //Important not to blend fft data - we want distinct frequencies for color change
+            window.vizAnalyser = context.createAnalyser();
+            vizAnalyser.fftsize = 2048;
+            vizAnalyser.smoothingTimeConstant = .95; //smoothing time is important for vizualization
+
+            // Try to capture system audio first, fall back to microphone if needed
+            captureSystemAudio();
+        }
+
+        function toggleAudioSource() {
+            // Stop processing
+            isProcessing = false;
+
+            // Stop current stream
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+
+            // Disconnect current source
+            if (window.source) {
+                window.source.disconnect();
+            }
+
+            // Switch source
+            if (audioSource === 'system') {
+                audioSource = 'microphone';
+                fallbackToMicrophone();
+            } else {
+                audioSource = 'system';
+                captureSystemAudio();
+            }
+        }
+
+        function captureSystemAudio() {
+            // Use getDisplayMedia to capture screen with audio
+            navigator.mediaDevices.getDisplayMedia({
+                video: true, // We need video to be true, but we'll ignore the video stream
+                audio: {
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    sampleRate: 44100,
+                    chromeMediaSource: 'desktop',
+                    chromeMediaSourceId: 'screen:0:0',
+                    systemAudio: 'include' // Request system audio
+                }
+            }).then(function (stream) {
+                console.log('System audio capture started');
+                currentStream = stream;
+
+                // Get only the audio track
+                const audioTracks = stream.getAudioTracks();
+                if (audioTracks.length > 0) {
+                    // Create a new stream with only audio
+                    const audioStream = new MediaStream([audioTracks[0]]);
+
+                    // Stop the video track as we don't need it
+                    const videoTracks = stream.getVideoTracks();
+                    videoTracks.forEach(track => track.stop());
+
+                    // Connect audio nodes
+                    source = context.createMediaStreamSource(audioStream);
+                    source.connect(analyser);
+                    source.connect(vizAnalyser);
+
+                    // Process audio streams only if not already processing
+                    if (!isProcessing) {
+                        isProcessing = true;
+                        sendHueData();
+                        draw();
+                    }
+
+                    // Show status
+                    showAudioStatus('Capturing system audio');
+                    audioSource = 'system';
+                } else {
+                    console.warn('No audio track found in screen capture');
+                    fallbackToMicrophone();
+                }
+            }).catch(function (err) {
+                console.error('Failed to capture system audio:', err);
+                if (err.name === 'NotAllowedError') {
+                    showAudioStatus('Please allow screen sharing to capture system audio', true);
+                } else {
+                    fallbackToMicrophone();
+                }
+            });
+        }
+
+        function fallbackToMicrophone() {
+            console.log('Falling back to microphone input');
+
+            // Original microphone capture code
+            navigator.getMedia = (navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia);
+            navigator.getMedia({
+                audio: true,
+                video: false
+            }, function (localMediaStream) {
+                currentStream = localMediaStream;
+
+                //connect audio nodes
+                source = context.createMediaStreamSource(localMediaStream);
+                source.connect(analyser);
+                source.connect(vizAnalyser);
+
+                //process audio streams only if not already processing
+                if (!isProcessing) {
+                    isProcessing = true;
+                    sendHueData();
+                    draw();
+                }
+
+                showAudioStatus('Using microphone input');
+                audioSource = 'microphone';
+            }, function (err) {
+                console.log(err);
+                showAudioStatus('No audio input available', true);
+            });
+        }
+
+        function showAudioStatus(message, isError = false) {
+            // Remove existing status if any
+            const existingStatus = document.getElementById('audio-status');
+            if (existingStatus) {
+                existingStatus.remove();
+            }
+
+            // Create status element
+            const status = document.createElement('div');
+            status.id = 'audio-status';
+            status.style.cssText = `
+            position: fixed;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            background-color: ${isError ? '#ff4444' : '#44ff44'};
+            color: ${isError ? 'white' : 'black'};
+            border-radius: 5px;
+            font-family: Arial, sans-serif;
+            z-index: 1000;
+        `;
+            status.textContent = message;
+            document.body.appendChild(status);
+
+            // Auto-hide after 5 seconds if not an error
+            if (!isError) {
+                setTimeout(() => {
+                    if (status.parentNode) {
+                        status.remove();
+                    }
+                }, 5000);
+            }
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function draw() {
+            if (!isProcessing) return; // Stop if processing was disabled
+
+            //set fillStyles
+            ctx.fillStyle = gradient;
+            ctx2.fillStyle = gradient2;
+
+            //get frequency data from analyser node
+            var bufferLength = vizAnalyser.frequencyBinCount;
+            var hueData = new Uint8Array(bufferLength);
+            vizAnalyser.getByteFrequencyData(hueData);
+
+            //clear canvases
+            var viz = document.getElementById("viz");
+            ctx.clearRect(0, 0, viz.width, 256);
+            ctx2.clearRect(0, 0, viz.width, 256);
+            for (var i = 0; i < bufferLength; i++) {
+                //draw reflected visualizations
+                ctx.fillRect(i * 2, 150 - (hueData[i] / 2), 2, 2);
+                ctx.fillRect(i * 2, 150 - (hueData[i] / 1.5), 1.5, 1.5);
+                ctx.fillRect(i * 2, 150 - hueData[i], 1, 1);
+                ctx2.fillRect(i * 2, hueData[i] - 2, 1, 1);
+                ctx2.fillRect(i * 2, (hueData[i] / 1.5) - 2, 1.5, 1.5);
+                ctx2.fillRect(i * 2, (hueData[i] / 2) - 2, 2, 2);
+            }
+            requestAnimationFrame(draw);
+        }
+
+        async function sendHueData() {
+            if (!isProcessing) return; // Stop if processing was disabled
+
+            //get frequency data from analyser node
+            var bufferLength = analyser.frequencyBinCount;
+            var hueData = new Uint8Array(bufferLength);
+            analyser.getByteFrequencyData(hueData);
+
+            //find the dominant frequency bin
+            var max = 0;
+            var index = -1;
+            for (var i = 0; i < bufferLength; i++) {
+                if (hueData[i] > max) {
+                    max = hueData[i];
+                    index = i;
+                }
+            }
+
+            //calculate the dominant frequency
+            var frequency = (index * 44100) / 2048.0;
+            var brightness = max;
+
+            //determine if freq is low or high
+            var low = false;
+            if (frequency < 450) {
+                low = true;
+                //dim lights if no sound
+                if (frequency < 0) {
+                    brightness = 125;
+                }
+            }
+
+            //calculate hue val
+            var hue = Math.min(frequency / 1250, 1);
+
+            //construct json with data
+            var hueJSON = {
+                "hue": hue,
+                "brightness": brightness,
+                "low": low
+            };
+
+            //post freq data to server
+            $.ajax({
+                url: '/hueData',
+                type: 'POST',
+                dataType: 'json',
+                data: JSON.stringify(hueJSON),
+                contentType: "application/json",
+            });
+
+            //wait 333ms & repeat
+            await sleep(333);
+            requestAnimationFrame(sendHueData);
+        }
+    </script>
 
 </body>
+
 </html>

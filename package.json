@@ -25,5 +25,11 @@
   "bugs": {
     "url": "https://github.com/MatthewMawby/RaveForm/issues"
   },
-  "homepage": "https://github.com/MatthewMawby/RaveForm#readme"
+  "homepage": "https://github.com/MatthewMawby/RaveForm#readme",
+  "dependencies": {
+    "body-parser": "^2.2.0",
+    "cookie-parser": "^1.4.7",
+    "express": "^5.1.0",
+    "node-hue-api": "^5.0.0-beta.16"
+  }
 }

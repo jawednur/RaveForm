@@ -1,52 +1,75 @@
 <!DOCTYPE html>
 <html>
-<title>RaveForm</title>
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="icon" href="assets/raveform_banner.png" type="image/x-icon"/>
-    <link rel="stylesheet" type="text/css" href="assets/stylesheet.css"/>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
-    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+  <title>RaveForm</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="assets/raveform_banner.png" type="image/x-icon" />
+  <link rel="stylesheet" type="text/css" href="assets/stylesheet.css" />
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+  <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"
+    integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+    crossorigin="anonymous"></script>
 </head>
 
-    <body id="body" style="background-color: white; height: 100vh; width 100vw;">
-    <!-- Navbar -->
-    <nav class="navbar navbar-fixed-top navbar-inverse">
-      <div class="container-fluid">
-        <a class="navbar-brand" href="#home" style="font-family: d3iso;">
-          <span>
-            <img id="navicon" src="assets/raveform_banner.png"/>
+<body id="body" style="background-color: white; height: 100vh; width: 100vw;">
+  <!-- Navbar -->
+  <nav class="navbar navbar-fixed-top navbar-inverse">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#home" style="font-family: d3iso;">
+        <span>
+          <img id="navicon" src="assets/raveform_banner.png" />
         </span>
-          RaveForm
-        </a>
-      </div>
-    </nav>
-
-    <div id="instruction_container">
-        <image id="bridge_image" src="assets/press.png"/>
-        <p id="instructions">
-            Please press the button on your bridge and then continue.
-        </p>
-        <button id="button" onclick="load()" class="button" type="button">Continue</button>
+        RaveForm
+      </a>
     </div>
+  </nav>
 
-    <script>
-    function load(){
-        //post freq data to server
-        $.ajax({
-            url: '/set',
-            type: 'GET',
-            success: function(data){
-                console.log('loading index');
-                location.reload();
-            }
-        });
+  <div id="instruction_container">
+    <image id="bridge_image" src="assets/press.png" />
+    <p id="instructions">
+      Please press the button on your bridge and then continue.
+    </p>
+    <button id="button" onclick="load()" class="button" type="button">Continue</button>
+    <div id="error-message" style="color: red; margin-top: 20px; display: none;"></div>
+  </div>
+
+  <script>
+    function load() {
+      // Disable button to prevent multiple clicks
+      $('#button').prop('disabled', true).text('Connecting...');
+      $('#error-message').hide();
+
+      //post freq data to server
+      $.ajax({
+        url: '/set',
+        type: 'GET',
+        success: function (data) {
+          console.log('loading index');
+          location.reload();
+        },
+        error: function (xhr, status, error) {
+          $('#button').prop('disabled', false).text('Continue');
+
+          var errorMsg = 'An error occurred';
+          if (xhr.responseJSON && xhr.responseJSON.error) {
+            errorMsg = xhr.responseJSON.error;
+          } else if (xhr.status === 403) {
+            errorMsg = 'Please press the button on your Hue bridge first, then click Continue';
+          } else if (xhr.status === 503) {
+            errorMsg = 'Bridge not found. Please ensure your bridge is connected and try again';
+          }
+
+          $('#error-message').text(errorMsg).show();
+        }
+      });
     }
 
-    </script>
+  </script>
 
-    </body>
+</body>
+
 </html>
